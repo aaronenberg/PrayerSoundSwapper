@@ -26,26 +26,20 @@
 package com.prayersoundswapper;
 
 import com.google.inject.Provides;
-import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 import javax.inject.Inject;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.sound.sampled.FloatControl;
-import javax.sound.sampled.LineEvent;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.events.SoundEffectPlayed;
 import net.runelite.client.RuneLite;
+import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -70,9 +64,12 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	private ClientThread clientThread;
 
 	@Inject
+	private AudioPlayer audioPlayer;
+
+	@Inject
 	private PrayerSoundSwapperConfig config;
 
-	public HashMap<Integer, Sound> customSounds = new HashMap<>();
+	public HashMap<Integer, byte[]> customSounds = new HashMap<>();
 	public Map<Integer, PrayerSoundSwap> configuredSoundSwaps = new HashMap<>();
 
 	@Provides
@@ -133,9 +130,10 @@ public class PrayerSoundSwapperPlugin extends Plugin
 
 		if (soundSwap == PrayerSoundSwap.CUSTOM_SOUND)
 		{
-			Sound customSound = customSounds.get(soundId);
+			byte[] customSound = customSounds.get(soundId);
 			if (customSound != null)
 			{
+				log.debug("playing custom prayer sound swap: {}", soundId);
 				event.consume();
 				playCustomSound(customSound, config.enableCustomSoundsVolume() ? config.customSoundsVolume() : -1);
 			}
@@ -145,13 +143,13 @@ public class PrayerSoundSwapperPlugin extends Plugin
 		if (soundSwap != null && soundSwap.isPrayerSound())
 		{
 			int replacementSoundId = soundSwap.getSoundId();
-			log.debug("native prayer sound swap: {} -> {}", soundId, replacementSoundId);
+			log.debug("playing native prayer sound swap: {} -> {}", soundId, replacementSoundId);
 			event.consume();
 			clientThread.invokeLater(() -> client.playSoundEffect(replacementSoundId));
 		}
 	}
 
-	private boolean tryLoadSound(Map<Integer, Sound> sounds, String soundName, Integer soundId)
+	private boolean tryLoadSound(Map<Integer, byte[]> sounds, String soundName, Integer soundId)
 	{
 		File soundFile = new File(SOUND_DIR, soundName + ".wav");
 
@@ -160,35 +158,12 @@ public class PrayerSoundSwapperPlugin extends Plugin
 			return false;
 		}
 
-		try (
-			InputStream fileStream = new BufferedInputStream(new FileInputStream(soundFile));
-			AudioInputStream stream = AudioSystem.getAudioInputStream(fileStream)
-		)
+		try
 		{
-			int streamLen = (int) stream.getFrameLength() * stream.getFormat().getFrameSize();
-			byte[] bytes = new byte[streamLen];
-			int bytesRead = 0;
-			while (bytesRead < streamLen)
-			{
-				int read = stream.read(bytes, bytesRead, streamLen - bytesRead);
-				if (read == -1)
-				{
-					break;
-				}
-
-				bytesRead += read;
-			}
-
-			if (bytesRead != streamLen)
-			{
-				log.warn("Unable to fully read custom sound {}", soundName);
-				return false;
-			}
-
-			sounds.put(soundId, new Sound(bytes, stream.getFormat(), streamLen));
+			sounds.put(soundId, Files.readAllBytes(soundFile.toPath()));
 			return true;
 		}
-		catch (UnsupportedAudioFileException | IOException e)
+		catch (IOException e)
 		{
 			log.warn("Unable to load custom sound " + soundName, e);
 		}
@@ -345,44 +320,21 @@ public class PrayerSoundSwapperPlugin extends Plugin
 		return selectedSound == null ? PrayerSoundSwap.ORIGINAL : selectedSound;
 	}
 
-	private void playCustomSound(Sound sound, int volume)
+	private void playCustomSound(byte[] sound, int volume)
 	{
-		Clip clip = null;
-		boolean started = false;
-
-		try
+		try (ByteArrayInputStream stream = new ByteArrayInputStream(sound))
 		{
-			clip = AudioSystem.getClip();
-			Clip soundClip = clip;
-			soundClip.addLineListener(event ->
-			{
-				if (event.getType() == LineEvent.Type.STOP)
-				{
-					soundClip.close();
-				}
-			});
-			soundClip.open(sound.getFormat(), sound.getBytes(), 0, sound.getNumBytes());
-
-			if (volume != -1 && soundClip.isControlSupported(FloatControl.Type.MASTER_GAIN))
-			{
-				FloatControl control = (FloatControl) soundClip.getControl(FloatControl.Type.MASTER_GAIN);
-				float gain = Math.max(control.getMinimum(), Math.min(control.getMaximum(), (float) (volume / 2 - 45)));
-				control.setValue(gain);
-			}
-
-			soundClip.setFramePosition(0);
-			soundClip.start();
-			started = true;
+			audioPlayer.play(stream, getGain(volume));
 		}
-		catch (IllegalArgumentException | LineUnavailableException e)
+		catch (IOException | LineUnavailableException | UnsupportedAudioFileException e)
 		{
-			if (!started && clip != null)
-			{
-				clip.close();
-			}
-
 			log.warn("Failed to play custom sound", e);
 		}
+	}
+
+	private static float getGain(int volume)
+	{
+		return volume == -1 ? 0 : volume / 2 - 45;
 	}
 
 	private void reset()
