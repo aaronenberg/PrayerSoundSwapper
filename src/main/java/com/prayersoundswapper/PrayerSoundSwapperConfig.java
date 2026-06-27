@@ -158,7 +158,7 @@ public interface PrayerSoundSwapperConfig extends Config
 
 	@ConfigItem(
 		keyName = "mysticWillAugury",
-		name = "Mystic Will / Augury",
+		name = "Augury",
 		description = "Sound to play instead of Mystic Will / Augury (2670)",
 		position = 10,
 		section = PRAYER_SOUND_SWAPS_SECTION
@@ -218,7 +218,7 @@ public interface PrayerSoundSwapperConfig extends Config
 
 	@ConfigItem(
 		keyName = "protectFromMagic",
-		name = "Protect from Magic",
+		name = "Protect Magic",
 		description = "Sound to play instead of Protect from Magic (2675)",
 		position = 15,
 		section = PRAYER_SOUND_SWAPS_SECTION
@@ -230,7 +230,7 @@ public interface PrayerSoundSwapperConfig extends Config
 
 	@ConfigItem(
 		keyName = "protectFromMelee",
-		name = "Protect from Melee",
+		name = "Protect Melee",
 		description = "Sound to play instead of Protect from Melee (2676)",
 		position = 16,
 		section = PRAYER_SOUND_SWAPS_SECTION
@@ -242,7 +242,7 @@ public interface PrayerSoundSwapperConfig extends Config
 
 	@ConfigItem(
 		keyName = "protectFromMissiles",
-		name = "Protect from Missiles",
+		name = "Protect Missiles",
 		description = "Sound to play instead of Protect from Missiles (2677)",
 		position = 17,
 		section = PRAYER_SOUND_SWAPS_SECTION
@@ -266,7 +266,7 @@ public interface PrayerSoundSwapperConfig extends Config
 
 	@ConfigItem(
 		keyName = "rapidRestorePreserve",
-		name = "Rapid Restore / Preserve",
+		name = "Preserve",
 		description = "Sound to play instead of Rapid Restore / Preserve (2679)",
 		position = 19,
 		section = PRAYER_SOUND_SWAPS_SECTION
@@ -314,7 +314,7 @@ public interface PrayerSoundSwapperConfig extends Config
 
 	@ConfigItem(
 		keyName = "retributionTest",
-		name = "Retribution Test",
+		name = "Retrib. Test",
 		description = "Sound to play instead of Retribution Test (2683)",
 		position = 23,
 		section = PRAYER_SOUND_SWAPS_SECTION
@@ -338,7 +338,7 @@ public interface PrayerSoundSwapperConfig extends Config
 
 	@ConfigItem(
 		keyName = "sharpEyeRigour",
-		name = "Sharp Eye / Rigour",
+		name = "Rigour",
 		description = "Sound to play instead of Sharp Eye / Rigour (2685)",
 		position = 25,
 		section = PRAYER_SOUND_SWAPS_SECTION

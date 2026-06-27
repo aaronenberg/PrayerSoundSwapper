@@ -33,36 +33,36 @@ public enum PrayerSoundSwap
 	ORIGINAL(-1, "Original"),
 	CUSTOM_SOUND(-1, "Custom Sound"),
 	PROTECT_ITEM(1982, "Protect Item"),
-	IMPROVED_REFLEXES(2662, "Improved Reflexes"),
+	IMPROVED_REFLEXES(2662, "Improv. Reflex"),
 	CANCEL_PRAYER(2663, "Cancel Prayer"),
-	CLARITY_OF_THOUGHT(2664, "Clarity of Thought"),
+	CLARITY_OF_THOUGHT(2664, "Clar. of Thought"),
 	EAGLE_EYE(2665, "Eagle Eye"),
 	HAWK_EYE(2666, "Hawk Eye"),
-	INCREDIBLE_REFLEXES(2667, "Incredible Reflexes"),
+	INCREDIBLE_REFLEXES(2667, "Incr. Reflex"),
 	MYSTIC_LORE(2668, "Mystic Lore"),
 	MYSTIC_MIGHT(2669, "Mystic Might"),
-	MYSTIC_WILL_AUGURY(2670, "Mystic Will / Augury"),
+	MYSTIC_WILL_AUGURY(2670, "Augury"),
 	PRAYER_BOOST(2671, "Prayer Boost"),
 	PRAYER_DRAIN(2672, "Prayer Drain"),
 	PRAYER_OFF(2673, "Prayer Off"),
 	PRAYER_RECHARGE(2674, "Prayer Recharge"),
-	PROTECT_FROM_MAGIC(2675, "Protect from Magic"),
-	PROTECT_FROM_MELEE(2676, "Protect from Melee"),
-	PROTECT_FROM_MISSILES(2677, "Protect from Missiles"),
+	PROTECT_FROM_MAGIC(2675, "Protect Magic"),
+	PROTECT_FROM_MELEE(2676, "Protect Melee"),
+	PROTECT_FROM_MISSILES(2677, "Protect Missiles"),
 	RAPID_HEAL(2678, "Rapid Heal"),
-	RAPID_RESTORE_PRESERVE(2679, "Rapid Restore / Preserve"),
+	RAPID_RESTORE_PRESERVE(2679, "Preserve"),
 	REDEMPTION(2680, "Redemption"),
-	REDEMPTION_HEAL(2681, "Redemption Heal"),
-	RETRIBUTION(2682, "Retribution"),
-	RETRIBUTION_TEST(2683, "Retribution Test"),
+	REDEMPTION_HEAL(2681, "Redemp. Heal"),
+	RETRIBUTION(2682, "Retrib."),
+	RETRIBUTION_TEST(2683, "Retrib. Test"),
 	ROCK_SKIN(2684, "Rock Skin"),
-	SHARP_EYE_RIGOUR(2685, "Sharp Eye / Rigour"),
+	SHARP_EYE_RIGOUR(2685, "Rigour"),
 	SMITE(2686, "Smite"),
 	STEEL_SKIN(2687, "Steel Skin"),
 	BURST_OF_STRENGTH(2688, "Burst of Strength"),
-	SUPERHUMAN_STRENGTH(2689, "Superhuman Strength"),
+	SUPERHUMAN_STRENGTH(2689, "Sprhmn. Strength"),
 	THICK_SKIN(2690, "Thick Skin"),
-	ULTIMATE_STRENGTH(2691, "Ultimate Strength"),
+	ULTIMATE_STRENGTH(2691, "Ult. Strength"),
 	PIETY(3825, "Piety"),
 	CHIVALRY(3826, "Chivalry"),
 	MYSTIC_VIGOUR(10100, "Mystic Vigour"),
@@ -112,11 +112,6 @@ public enum PrayerSoundSwap
 	@Override
 	public String toString()
 	{
-		if (!isPrayerSound())
-		{
-			return displayName;
-		}
-
-		return displayName + " (" + soundId + ")";
+		return displayName;
 	}
 }
