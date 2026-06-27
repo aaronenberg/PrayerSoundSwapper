@@ -8,11 +8,16 @@ Unlike the original Sound Swapper plugin, Prayer Sound Swapper only replaces pra
 to allow this plugin to be compliant when enabled in areas where the original SoundSwapper plugin
 cannot due to RuneLite guidelines around swapping arbitrary sounds.
 
+The plugin also includes Interface Select 1 (`2266`) because it is used by the quick prayer orb.
+RuneLite's sound event does not identify which widget triggered interface sounds, so swapping or
+muting Interface Select 1 applies to every source of that same sound ID.
+
 ## Prayer Sound Swaps
 
 Each prayer sound has its own dropdown. Choose:
 
 - `Original` to leave it unchanged.
+- `Mute` to prevent that prayer sound from playing.
 - `Custom Sound` to use a `.wav` file named after the original sound ID.
 - Any listed prayer sound to play that native prayer sound instead.
 
@@ -24,5 +29,3 @@ To replace a sound with a custom `.wav` file:
 2. Place a `.wav` file with the same name in the `PrayerSoundSwapper` folder in your root RuneLite folder.
 
 For example, setting `Protect from Magic (2675)` to `Custom Sound` uses `2675.wav`.
-
-Use the `Mute` dropdown option to prevent a specific prayer sound from playing.

@@ -462,6 +462,18 @@ public interface PrayerSoundSwapperConfig extends Config
 	}
 
 	@ConfigItem(
+		keyName = "prayerOrb",
+		name = "Prayer Orb",
+		description = "Sound to play instead of Prayer Orb (2266)",
+		position = 36,
+		section = PRAYER_SOUND_SWAPS_SECTION
+	)
+	default PrayerSoundSwap prayerOrb()
+	{
+		return PrayerSoundSwap.ORIGINAL;
+	}
+
+	@ConfigItem(
 		keyName = "enableCustomSoundsVolume",
 		name = "Enable Custom Volume",
 		description = "Enable the ability to set the volume of custom sound effects",

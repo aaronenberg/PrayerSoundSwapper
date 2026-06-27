@@ -31,7 +31,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
@@ -71,6 +73,7 @@ public class PrayerSoundSwapperPlugin extends Plugin
 
 	public HashMap<Integer, byte[]> customSounds = new HashMap<>();
 	public Map<Integer, PrayerSoundSwap> configuredSoundSwaps = new HashMap<>();
+	private final Set<Integer> replayedNativeSoundIds = new HashSet<>();
 
 	@Provides
 	PrayerSoundSwapperConfig provideConfig(ConfigManager configManager)
@@ -119,6 +122,11 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	public void onSoundEffectPlayed(SoundEffectPlayed event)
 	{
 		int soundId = event.getSoundId();
+		if (consumeReplayedNativeSound(soundId))
+		{
+			log.debug("allowing replayed native prayer sound effect: {}", soundId);
+			return;
+		}
 
 		PrayerSoundSwap soundSwap = configuredSoundSwaps.get(soundId);
 		if (soundSwap == PrayerSoundSwap.MUTE)
@@ -145,8 +153,24 @@ public class PrayerSoundSwapperPlugin extends Plugin
 			int replacementSoundId = soundSwap.getSoundId();
 			log.debug("playing native prayer sound swap: {} -> {}", soundId, replacementSoundId);
 			event.consume();
-			clientThread.invokeLater(() -> client.playSoundEffect(replacementSoundId));
+			clientThread.invokeLater(() -> playNativeSoundSwap(replacementSoundId));
 		}
+	}
+
+	private void playNativeSoundSwap(int replacementSoundId)
+	{
+		markReplayedNativeSound(replacementSoundId);
+		client.playSoundEffect(replacementSoundId);
+	}
+
+	void markReplayedNativeSound(int soundId)
+	{
+		replayedNativeSoundIds.add(soundId);
+	}
+
+	boolean consumeReplayedNativeSound(int soundId)
+	{
+		return replayedNativeSoundIds.remove(soundId);
 	}
 
 	private boolean tryLoadSound(Map<Integer, byte[]> sounds, String soundName, Integer soundId)
@@ -209,6 +233,9 @@ public class PrayerSoundSwapperPlugin extends Plugin
 		{
 			case PROTECT_ITEM:
 				selectedSound = config.protectItem();
+				break;
+			case PRAYER_ORB:
+				selectedSound = config.prayerOrb();
 				break;
 			case IMPROVED_REFLEXES:
 				selectedSound = config.improvedReflexes();
@@ -341,5 +368,6 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	{
 		customSounds = new HashMap<>();
 		configuredSoundSwaps = new HashMap<>();
+		replayedNativeSoundIds.clear();
 	}
 }
