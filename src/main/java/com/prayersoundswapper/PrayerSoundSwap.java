@@ -34,6 +34,7 @@ public enum PrayerSoundSwap
 	MUTE(-1, "Mute"),
 	CUSTOM_SOUND(-1, "Custom Sound"),
 	PROTECT_ITEM(1982, "Protect Item"),
+	PRAYER_ORB(2266, "Prayer Orb"),
 	IMPROVED_REFLEXES(2662, "Improv. Reflex"),
 	CANCEL_PRAYER(2663, "Cancel Prayer"),
 	CLARITY_OF_THOUGHT(2664, "Clar. of Thought"),

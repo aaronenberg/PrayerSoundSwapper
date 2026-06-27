@@ -11,6 +11,7 @@ public class PrayerSoundIdsTest
 	public void allowsKnownPrayerSoundIds()
 	{
 		assertTrue(PrayerSoundIds.isReplaceable(1982));
+		assertTrue(PrayerSoundIds.isReplaceable(2266));
 		assertTrue(PrayerSoundIds.isReplaceable(2675));
 		assertTrue(PrayerSoundIds.isReplaceable(2685));
 		assertTrue(PrayerSoundIds.isReplaceable(3825));

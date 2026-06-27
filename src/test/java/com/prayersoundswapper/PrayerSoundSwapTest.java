@@ -12,6 +12,7 @@ public class PrayerSoundSwapTest
 	public void findsPrayerSoundById()
 	{
 		assertEquals(PrayerSoundSwap.PROTECT_FROM_MAGIC, PrayerSoundSwap.fromSoundId(2675));
+		assertEquals(PrayerSoundSwap.PRAYER_ORB, PrayerSoundSwap.fromSoundId(2266));
 		assertEquals(PrayerSoundSwap.MYSTIC_VIGOUR, PrayerSoundSwap.fromSoundId(10100));
 		assertNull(PrayerSoundSwap.fromSoundId(97));
 	}
