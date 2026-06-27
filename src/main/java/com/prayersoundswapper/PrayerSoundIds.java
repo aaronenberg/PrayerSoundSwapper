@@ -24,54 +24,14 @@
  */
 package com.prayersoundswapper;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public final class PrayerSoundIds
 {
-	public static final List<Integer> REPLACEABLE_SOUND_IDS = List.of(
-		1982, // protect_items
-		2662, // improved_reflexes
-		2663, // cancel_prayer
-		2664, // clarity
-		2665, // eagle_eye
-		2666, // hawk_eye
-		2667, // incredible_reflexes
-		2668, // mystic_lore
-		2669, // mystic_might
-		2670, // mystic_will; also used for Augury
-		2671, // prayer_boost
-		2672, // prayer_drain
-		2673, // prayer_off
-		2674, // prayer_recharge
-		2675, // protect_from_magic
-		2676, // protect_from_melee
-		2677, // protect_from_missiles
-		2678, // rapid_heal
-		2679, // rapid_restore; also used for Preserve
-		2680, // redemption
-		2681, // redemption_heal
-		2682, // retribution
-		2683, // retribution_test
-		2684, // rock_skin
-		2685, // sharp_eye; also used for Rigour
-		2686, // smite
-		2687, // steel_skin
-		2688, // strength_burst
-		2689, // superhuman_strength
-		2690, // thick_skin
-		2691, // ultimate_strength
-		3825, // kr_piety
-		3826, // kr_chivalry
-		10100, // mystic_vigour
-		10194 // deadeye
-	);
-
-	private static final Set<Integer> REPLACEABLE_SOUND_ID_SET =
-		Collections.unmodifiableSet(new HashSet<>(REPLACEABLE_SOUND_IDS));
+	public static final List<Integer> REPLACEABLE_SOUND_IDS = PrayerSoundSwap.prayerSounds().stream()
+		.map(PrayerSoundSwap::getSoundId)
+		.collect(Collectors.toUnmodifiableList());
 
 	private PrayerSoundIds()
 	{
@@ -79,7 +39,7 @@ public final class PrayerSoundIds
 
 	public static boolean isReplaceable(int soundId)
 	{
-		return REPLACEABLE_SOUND_ID_SET.contains(soundId);
+		return PrayerSoundSwap.fromSoundId(soundId) != null;
 	}
 
 	public static String toCsv()

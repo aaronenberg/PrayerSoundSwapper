@@ -26,37 +26,26 @@
 package com.prayersoundswapper;
 
 import com.google.inject.Provides;
-import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.sound.sampled.FloatControl;
-import javax.sound.sampled.LineEvent;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.events.SoundEffectPlayed;
 import net.runelite.client.RuneLite;
+import net.runelite.client.audio.AudioPlayer;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.ui.overlay.OverlayManager;
-import net.runelite.client.util.Text;
 
 @Slf4j
 @PluginDescriptor(
@@ -67,11 +56,6 @@ public class PrayerSoundSwapperPlugin extends Plugin
 {
 	private static final File SOUND_DIR = new File(RuneLite.RUNELITE_DIR, "PrayerSoundSwapper");
 	private static final String CONFIG_GROUP = "prayer-sound-swapper";
-	private static final String CONFIG_KEY_CUSTOM_SOUNDS = "customSounds";
-	private static final String CONFIG_KEY_BLOCKED_SOUNDS = "blockedSounds";
-	private static final String CONFIG_KEY_NATIVE_SOUND_SWAPS = "nativeSoundSwaps";
-	private static final String LEGACY_CONFIG_KEY_NATIVE_SOUND_IDS_TO_REPLACE = "nativeSoundIDsToReplace";
-	private static final String LEGACY_CONFIG_KEY_NATIVE_SOUND_ID_REPLACEMENTS = "nativeSoundIDReplacements";
 
 	@Inject
 	private Client client;
@@ -80,23 +64,13 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	private ClientThread clientThread;
 
 	@Inject
-	private EventBus eventBus;
+	private AudioPlayer audioPlayer;
 
 	@Inject
 	private PrayerSoundSwapperConfig config;
 
-	@Inject
-	private ConfigManager configManager;
-
-	@Inject
-	private OverlayManager overlayManager;
-
-	@Inject
-	private SoundEffectOverlay soundEffectOverlay;
-
-	public HashMap<Integer, Sound> customSounds = new HashMap<>();
-	public List<Integer> blockedSounds = new ArrayList<>();
-	public Map<Integer, Integer> nativeSoundSwaps = new HashMap<>();
+	public HashMap<Integer, byte[]> customSounds = new HashMap<>();
+	public Map<Integer, PrayerSoundSwap> configuredSoundSwaps = new HashMap<>();
 
 	@Provides
 	PrayerSoundSwapperConfig provideConfig(ConfigManager configManager)
@@ -116,18 +90,12 @@ public class PrayerSoundSwapperPlugin extends Plugin
 			log.error("Attempted to create PrayerSoundSwapper directory and a security exception prompted a fault", securityException);
 		}
 
-		migrateNativeSoundSwapConfig();
 		updateLists();
-
-		overlayManager.add(soundEffectOverlay);
-		eventBus.register(soundEffectOverlay);
 	}
 
 	@Override
 	protected void shutDown() throws Exception
 	{
-		eventBus.unregister(soundEffectOverlay);
-		overlayManager.remove(soundEffectOverlay);
 		reset();
 	}
 
@@ -139,37 +107,12 @@ public class PrayerSoundSwapperPlugin extends Plugin
 			return;
 		}
 
-		switch (event.getKey())
-		{
-			case CONFIG_KEY_CUSTOM_SOUNDS:
-				updateSoundList(customSounds, event.getNewValue(), "Custom Sounds");
-				break;
-			case CONFIG_KEY_BLOCKED_SOUNDS:
-				blockedSounds = getReplaceableIds(event.getNewValue(), "Blocked Sounds");
-				break;
-			case CONFIG_KEY_NATIVE_SOUND_SWAPS:
-				updateNativeSoundSwaps(event.getNewValue());
-				break;
-			default:
-				break;
-		}
-
-		soundEffectOverlay.resetLines();
+		updateConfiguredSoundSwaps();
 	}
 
 	void updateLists()
 	{
-		if (!config.customSounds().isEmpty())
-		{
-			updateSoundList(customSounds, config.customSounds(), "Custom Sounds");
-		}
-
-		if (!config.blockedSounds().isEmpty())
-		{
-			blockedSounds = getReplaceableIds(config.blockedSounds(), "Blocked Sounds");
-		}
-
-		updateNativeSoundSwaps(config.nativeSoundSwaps());
+		updateConfiguredSoundSwaps();
 	}
 
 	@Subscribe
@@ -177,35 +120,36 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	{
 		int soundId = event.getSoundId();
 
-		if (blockedSounds.contains(soundId))
+		PrayerSoundSwap soundSwap = configuredSoundSwaps.get(soundId);
+		if (soundSwap == PrayerSoundSwap.MUTE)
 		{
-			log.debug("blocked prayer sound effect: {}", soundId);
+			log.debug("muted prayer sound effect: {}", soundId);
 			event.consume();
 			return;
 		}
 
-		if (config.soundEffects() && customSounds.containsKey(soundId))
+		if (soundSwap == PrayerSoundSwap.CUSTOM_SOUND)
 		{
-			log.debug("playing custom sound effect for prayer: {}", soundId);
-			event.consume();
-			playCustomSound(customSounds.get(soundId), config.enableCustomSoundsVolume() ? config.customSoundsVolume() : -1);
-			return;
-		}
-
-		if (config.nativeSoundIDSwapEnable())
-		{
-			Integer replacementSoundId = nativeSoundSwaps.get(soundId);
-
-			if (replacementSoundId != null)
+			byte[] customSound = customSounds.get(soundId);
+			if (customSound != null)
 			{
-				log.debug("swapping prayer sound effect: {} with native sound effect: {}", soundId, replacementSoundId);
+				log.debug("playing custom prayer sound swap: {}", soundId);
 				event.consume();
-				clientThread.invokeLater(() -> client.playSoundEffect(replacementSoundId));
+				playCustomSound(customSound, config.enableCustomSoundsVolume() ? config.customSoundsVolume() : -1);
 			}
+			return;
+		}
+
+		if (soundSwap != null && soundSwap.isPrayerSound())
+		{
+			int replacementSoundId = soundSwap.getSoundId();
+			log.debug("playing native prayer sound swap: {} -> {}", soundId, replacementSoundId);
+			event.consume();
+			clientThread.invokeLater(() -> client.playSoundEffect(replacementSoundId));
 		}
 	}
 
-	private boolean tryLoadSound(Map<Integer, Sound> sounds, String soundName, Integer soundId)
+	private boolean tryLoadSound(Map<Integer, byte[]> sounds, String soundName, Integer soundId)
 	{
 		File soundFile = new File(SOUND_DIR, soundName + ".wav");
 
@@ -214,35 +158,12 @@ public class PrayerSoundSwapperPlugin extends Plugin
 			return false;
 		}
 
-		try (
-			InputStream fileStream = new BufferedInputStream(new FileInputStream(soundFile));
-			AudioInputStream stream = AudioSystem.getAudioInputStream(fileStream)
-		)
+		try
 		{
-			int streamLen = (int) stream.getFrameLength() * stream.getFormat().getFrameSize();
-			byte[] bytes = new byte[streamLen];
-			int bytesRead = 0;
-			while (bytesRead < streamLen)
-			{
-				int read = stream.read(bytes, bytesRead, streamLen - bytesRead);
-				if (read == -1)
-				{
-					break;
-				}
-
-				bytesRead += read;
-			}
-
-			if (bytesRead != streamLen)
-			{
-				log.warn("Unable to fully read custom sound {}", soundName);
-				return false;
-			}
-
-			sounds.put(soundId, new Sound(bytes, stream.getFormat(), streamLen));
+			sounds.put(soundId, Files.readAllBytes(soundFile.toPath()));
 			return true;
 		}
-		catch (UnsupportedAudioFileException | IOException e)
+		catch (IOException e)
 		{
 			log.warn("Unable to load custom sound " + soundName, e);
 		}
@@ -250,201 +171,175 @@ public class PrayerSoundSwapperPlugin extends Plugin
 		return false;
 	}
 
-	private void updateSoundList(Map<Integer, Sound> sounds, String configText, String settingName)
+	private void updateConfiguredSoundSwaps()
 	{
-		sounds.clear();
+		customSounds.clear();
+		Map<Integer, PrayerSoundSwap> updatedSoundSwaps = new HashMap<>();
 
-		for (int id : getReplaceableIds(configText, settingName))
+		for (PrayerSoundSwap sourceSound : PrayerSoundSwap.prayerSounds())
 		{
-			tryLoadSound(sounds, Integer.toString(id), id);
-		}
-	}
-
-	List<Integer> getReplaceableIds(String configText, String settingName)
-	{
-		List<Integer> ids = getIds(configText);
-		List<Integer> replaceableIds = new ArrayList<>();
-
-		for (int id : ids)
-		{
-			if (PrayerSoundIds.isReplaceable(id))
+			PrayerSoundSwap selectedSound = getConfiguredSoundSwap(sourceSound);
+			if (selectedSound == PrayerSoundSwap.ORIGINAL)
 			{
-				replaceableIds.add(id);
+				continue;
 			}
-			else
+
+			int sourceSoundId = sourceSound.getSoundId();
+			updatedSoundSwaps.put(sourceSoundId, selectedSound);
+
+			if (selectedSound == PrayerSoundSwap.CUSTOM_SOUND)
 			{
-				log.warn("Ignoring sound ID {} in {} because it is not in the PrayerSoundIds allowlist", id, settingName);
+				tryLoadSound(customSounds, Integer.toString(sourceSoundId), sourceSoundId);
 			}
 		}
 
-		return replaceableIds;
+		configuredSoundSwaps = updatedSoundSwaps;
 	}
 
-	void updateNativeSoundSwaps(String configText)
+	PrayerSoundSwap getConfiguredSoundSwap(int soundId)
 	{
-		Map<Integer, Integer> updatedNativeSoundSwaps = new HashMap<>();
-
-		if (configText == null || configText.isEmpty())
-		{
-			nativeSoundSwaps = updatedNativeSoundSwaps;
-			return;
-		}
-
-		configText.lines()
-			.map(String::trim)
-			.filter(line -> !line.isEmpty())
-			.forEach(line -> addNativeSoundSwap(updatedNativeSoundSwaps, line));
-
-		nativeSoundSwaps = updatedNativeSoundSwaps;
+		PrayerSoundSwap sourceSound = PrayerSoundSwap.fromSoundId(soundId);
+		return sourceSound == null ? PrayerSoundSwap.ORIGINAL : getConfiguredSoundSwap(sourceSound);
 	}
 
-	private void addNativeSoundSwap(Map<Integer, Integer> updatedNativeSoundSwaps, String line)
+	private PrayerSoundSwap getConfiguredSoundSwap(PrayerSoundSwap sourceSound)
 	{
-		List<String> values = Text.fromCSV(line);
-		if (values.size() != 2)
+		PrayerSoundSwap selectedSound;
+		switch (sourceSound)
 		{
-			log.warn("Invalid native sound swap line '{}'. Expected exactly two comma-separated IDs", line);
-			return;
+			case PROTECT_ITEM:
+				selectedSound = config.protectItem();
+				break;
+			case IMPROVED_REFLEXES:
+				selectedSound = config.improvedReflexes();
+				break;
+			case CANCEL_PRAYER:
+				selectedSound = config.cancelPrayer();
+				break;
+			case CLARITY_OF_THOUGHT:
+				selectedSound = config.clarityOfThought();
+				break;
+			case EAGLE_EYE:
+				selectedSound = config.eagleEye();
+				break;
+			case HAWK_EYE:
+				selectedSound = config.hawkEye();
+				break;
+			case INCREDIBLE_REFLEXES:
+				selectedSound = config.incredibleReflexes();
+				break;
+			case MYSTIC_LORE:
+				selectedSound = config.mysticLore();
+				break;
+			case MYSTIC_MIGHT:
+				selectedSound = config.mysticMight();
+				break;
+			case MYSTIC_WILL_AUGURY:
+				selectedSound = config.mysticWillAugury();
+				break;
+			case PRAYER_BOOST:
+				selectedSound = config.prayerBoost();
+				break;
+			case PRAYER_DRAIN:
+				selectedSound = config.prayerDrain();
+				break;
+			case PRAYER_OFF:
+				selectedSound = config.prayerOff();
+				break;
+			case PRAYER_RECHARGE:
+				selectedSound = config.prayerRecharge();
+				break;
+			case PROTECT_FROM_MAGIC:
+				selectedSound = config.protectFromMagic();
+				break;
+			case PROTECT_FROM_MELEE:
+				selectedSound = config.protectFromMelee();
+				break;
+			case PROTECT_FROM_MISSILES:
+				selectedSound = config.protectFromMissiles();
+				break;
+			case RAPID_HEAL:
+				selectedSound = config.rapidHeal();
+				break;
+			case RAPID_RESTORE_PRESERVE:
+				selectedSound = config.rapidRestorePreserve();
+				break;
+			case REDEMPTION:
+				selectedSound = config.redemption();
+				break;
+			case REDEMPTION_HEAL:
+				selectedSound = config.redemptionHeal();
+				break;
+			case RETRIBUTION:
+				selectedSound = config.retribution();
+				break;
+			case RETRIBUTION_TEST:
+				selectedSound = config.retributionTest();
+				break;
+			case ROCK_SKIN:
+				selectedSound = config.rockSkin();
+				break;
+			case SHARP_EYE_RIGOUR:
+				selectedSound = config.sharpEyeRigour();
+				break;
+			case SMITE:
+				selectedSound = config.smite();
+				break;
+			case STEEL_SKIN:
+				selectedSound = config.steelSkin();
+				break;
+			case BURST_OF_STRENGTH:
+				selectedSound = config.burstOfStrength();
+				break;
+			case SUPERHUMAN_STRENGTH:
+				selectedSound = config.superhumanStrength();
+				break;
+			case THICK_SKIN:
+				selectedSound = config.thickSkin();
+				break;
+			case ULTIMATE_STRENGTH:
+				selectedSound = config.ultimateStrength();
+				break;
+			case PIETY:
+				selectedSound = config.piety();
+				break;
+			case CHIVALRY:
+				selectedSound = config.chivalry();
+				break;
+			case MYSTIC_VIGOUR:
+				selectedSound = config.mysticVigour();
+				break;
+			case DEADEYE:
+				selectedSound = config.deadeye();
+				break;
+			default:
+				selectedSound = PrayerSoundSwap.ORIGINAL;
+				break;
 		}
 
-		Integer id = parseId(values.get(0), line);
-		Integer replacementId = parseId(values.get(1), line);
-		if (id == null || replacementId == null)
-		{
-			return;
-		}
-
-		if (!PrayerSoundIds.isReplaceable(id))
-		{
-			log.warn("Ignoring sound ID {} in Native Sound Swaps because it is not in the PrayerSoundIds allowlist", id);
-			return;
-		}
-
-		if (updatedNativeSoundSwaps.containsKey(id))
-		{
-			log.warn("Ignoring duplicate sound ID {} in Native Sound Swaps", id);
-			return;
-		}
-
-		updatedNativeSoundSwaps.put(id, replacementId);
+		return selectedSound == null ? PrayerSoundSwap.ORIGINAL : selectedSound;
 	}
 
-	private Integer parseId(String value, String configText)
+	private void playCustomSound(byte[] sound, int volume)
 	{
-		try
+		try (ByteArrayInputStream stream = new ByteArrayInputStream(sound))
 		{
-			return Integer.parseInt(value.trim());
+			audioPlayer.play(stream, getGain(volume));
 		}
-		catch (NumberFormatException e)
+		catch (IOException | LineUnavailableException | UnsupportedAudioFileException e)
 		{
-			log.warn("Invalid id when parsing {}: {}", configText, value);
-			return null;
-		}
-	}
-
-	private List<Integer> getIds(String configText)
-	{
-		if (configText == null || configText.isEmpty())
-		{
-			return List.of();
-		}
-
-		List<Integer> ids = new ArrayList<>();
-		for (String s : Text.fromCSV(configText))
-		{
-			try
-			{
-				ids.add(Integer.parseInt(s));
-			}
-			catch (NumberFormatException e)
-			{
-				log.warn("Invalid id when parsing {}: {}", configText, s);
-			}
-		}
-
-		return ids;
-	}
-
-	private void migrateNativeSoundSwapConfig()
-	{
-		String nativeSoundSwaps = configManager.getConfiguration(CONFIG_GROUP, CONFIG_KEY_NATIVE_SOUND_SWAPS);
-		if (nativeSoundSwaps != null && !nativeSoundSwaps.trim().isEmpty())
-		{
-			return;
-		}
-
-		String legacyIdsToReplace = configManager.getConfiguration(CONFIG_GROUP, LEGACY_CONFIG_KEY_NATIVE_SOUND_IDS_TO_REPLACE);
-		String legacyReplacementIds = configManager.getConfiguration(CONFIG_GROUP, LEGACY_CONFIG_KEY_NATIVE_SOUND_ID_REPLACEMENTS);
-		if (isBlank(legacyIdsToReplace) || isBlank(legacyReplacementIds))
-		{
-			return;
-		}
-
-		List<Integer> idsToReplace = getIds(legacyIdsToReplace);
-		List<Integer> replacementIds = getIds(legacyReplacementIds);
-		List<String> migratedSwaps = new ArrayList<>();
-
-		for (int i = 0; i < idsToReplace.size() && i < replacementIds.size(); i++)
-		{
-			migratedSwaps.add(idsToReplace.get(i) + "," + replacementIds.get(i));
-		}
-
-		if (!migratedSwaps.isEmpty())
-		{
-			configManager.setConfiguration(CONFIG_GROUP, CONFIG_KEY_NATIVE_SOUND_SWAPS, String.join(System.lineSeparator(), migratedSwaps));
-		}
-	}
-
-	private static boolean isBlank(String value)
-	{
-		return value == null || value.trim().isEmpty();
-	}
-
-	private void playCustomSound(Sound sound, int volume)
-	{
-		Clip clip = null;
-		boolean started = false;
-
-		try
-		{
-			clip = AudioSystem.getClip();
-			Clip soundClip = clip;
-			soundClip.addLineListener(event ->
-			{
-				if (event.getType() == LineEvent.Type.STOP)
-				{
-					soundClip.close();
-				}
-			});
-			soundClip.open(sound.getFormat(), sound.getBytes(), 0, sound.getNumBytes());
-
-			if (volume != -1 && soundClip.isControlSupported(FloatControl.Type.MASTER_GAIN))
-			{
-				FloatControl control = (FloatControl) soundClip.getControl(FloatControl.Type.MASTER_GAIN);
-				float gain = Math.max(control.getMinimum(), Math.min(control.getMaximum(), (float) (volume / 2 - 45)));
-				control.setValue(gain);
-			}
-
-			soundClip.setFramePosition(0);
-			soundClip.start();
-			started = true;
-		}
-		catch (IllegalArgumentException | LineUnavailableException e)
-		{
-			if (!started && clip != null)
-			{
-				clip.close();
-			}
-
 			log.warn("Failed to play custom sound", e);
 		}
+	}
+
+	private static float getGain(int volume)
+	{
+		return volume == -1 ? 0 : volume / 2 - 45;
 	}
 
 	private void reset()
 	{
 		customSounds = new HashMap<>();
-		blockedSounds = new ArrayList<>();
-		nativeSoundSwaps = new HashMap<>();
-		soundEffectOverlay.resetLines();
+		configuredSoundSwaps = new HashMap<>();
 	}
 }
