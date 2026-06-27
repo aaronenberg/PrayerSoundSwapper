@@ -32,9 +32,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import javax.inject.Inject;
 import javax.sound.sampled.AudioInputStream;
@@ -54,7 +52,6 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.util.Text;
 
 @Slf4j
 @PluginDescriptor(
@@ -65,7 +62,6 @@ public class PrayerSoundSwapperPlugin extends Plugin
 {
 	private static final File SOUND_DIR = new File(RuneLite.RUNELITE_DIR, "PrayerSoundSwapper");
 	private static final String CONFIG_GROUP = "prayer-sound-swapper";
-	private static final String CONFIG_KEY_BLOCKED_SOUNDS = "blockedSounds";
 
 	@Inject
 	private Client client;
@@ -77,7 +73,6 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	private PrayerSoundSwapperConfig config;
 
 	public HashMap<Integer, Sound> customSounds = new HashMap<>();
-	public List<Integer> blockedSounds = new ArrayList<>();
 	public Map<Integer, PrayerSoundSwap> configuredSoundSwaps = new HashMap<>();
 
 	@Provides
@@ -115,25 +110,12 @@ public class PrayerSoundSwapperPlugin extends Plugin
 			return;
 		}
 
-		switch (event.getKey())
-		{
-			case CONFIG_KEY_BLOCKED_SOUNDS:
-				blockedSounds = getReplaceableIds(event.getNewValue(), "Blocked Sounds");
-				break;
-			default:
-				updateConfiguredSoundSwaps();
-				break;
-		}
+		updateConfiguredSoundSwaps();
 	}
 
 	void updateLists()
 	{
 		updateConfiguredSoundSwaps();
-
-		if (!config.blockedSounds().isEmpty())
-		{
-			blockedSounds = getReplaceableIds(config.blockedSounds(), "Blocked Sounds");
-		}
 	}
 
 	@Subscribe
@@ -141,14 +123,14 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	{
 		int soundId = event.getSoundId();
 
-		if (blockedSounds.contains(soundId))
+		PrayerSoundSwap soundSwap = configuredSoundSwaps.get(soundId);
+		if (soundSwap == PrayerSoundSwap.MUTE)
 		{
-			log.debug("blocked prayer sound effect: {}", soundId);
+			log.debug("muted prayer sound effect: {}", soundId);
 			event.consume();
 			return;
 		}
 
-		PrayerSoundSwap soundSwap = configuredSoundSwaps.get(soundId);
 		if (soundSwap == PrayerSoundSwap.CUSTOM_SOUND)
 		{
 			Sound customSound = customSounds.get(soundId);
@@ -237,26 +219,6 @@ public class PrayerSoundSwapperPlugin extends Plugin
 		}
 
 		configuredSoundSwaps = updatedSoundSwaps;
-	}
-
-	List<Integer> getReplaceableIds(String configText, String settingName)
-	{
-		List<Integer> ids = getIds(configText);
-		List<Integer> replaceableIds = new ArrayList<>();
-
-		for (int id : ids)
-		{
-			if (PrayerSoundIds.isReplaceable(id))
-			{
-				replaceableIds.add(id);
-			}
-			else
-			{
-				log.warn("Ignoring sound ID {} in {} because it is not in the PrayerSoundIds allowlist", id, settingName);
-			}
-		}
-
-		return replaceableIds;
 	}
 
 	PrayerSoundSwap getConfiguredSoundSwap(int soundId)
@@ -383,29 +345,6 @@ public class PrayerSoundSwapperPlugin extends Plugin
 		return selectedSound == null ? PrayerSoundSwap.ORIGINAL : selectedSound;
 	}
 
-	private List<Integer> getIds(String configText)
-	{
-		if (configText == null || configText.isEmpty())
-		{
-			return List.of();
-		}
-
-		List<Integer> ids = new ArrayList<>();
-		for (String s : Text.fromCSV(configText))
-		{
-			try
-			{
-				ids.add(Integer.parseInt(s));
-			}
-			catch (NumberFormatException e)
-			{
-				log.warn("Invalid id when parsing {}: {}", configText, s);
-			}
-		}
-
-		return ids;
-	}
-
 	private void playCustomSound(Sound sound, int volume)
 	{
 		Clip clip = null;
@@ -449,7 +388,6 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	private void reset()
 	{
 		customSounds = new HashMap<>();
-		blockedSounds = new ArrayList<>();
 		configuredSoundSwaps = new HashMap<>();
 	}
 }

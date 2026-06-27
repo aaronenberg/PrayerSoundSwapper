@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 public enum PrayerSoundSwap
 {
 	ORIGINAL(-1, "Original"),
+	MUTE(-1, "Mute"),
 	CUSTOM_SOUND(-1, "Custom Sound"),
 	PROTECT_ITEM(1982, "Protect Item"),
 	IMPROVED_REFLEXES(2662, "Improv. Reflex"),

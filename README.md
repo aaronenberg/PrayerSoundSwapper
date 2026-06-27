@@ -25,5 +25,4 @@ To replace a sound with a custom `.wav` file:
 
 For example, setting `Protect from Magic (2675)` to `Custom Sound` uses `2675.wav`.
 
-Blocked sounds still take precedence over custom and native swaps.
-
+Use the `Mute` dropdown option to prevent a specific prayer sound from playing.

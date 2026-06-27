@@ -21,6 +21,7 @@ public class PrayerSoundSwapTest
 	{
 		assertTrue(PrayerSoundSwap.prayerSounds().contains(PrayerSoundSwap.PROTECT_FROM_MAGIC));
 		assertTrue(!PrayerSoundSwap.prayerSounds().contains(PrayerSoundSwap.ORIGINAL));
+		assertTrue(!PrayerSoundSwap.prayerSounds().contains(PrayerSoundSwap.MUTE));
 		assertTrue(!PrayerSoundSwap.prayerSounds().contains(PrayerSoundSwap.CUSTOM_SOUND));
 	}
 }

@@ -41,13 +41,6 @@ public interface PrayerSoundSwapperConfig extends Config
 	)
 	String PRAYER_SOUND_SWAPS_SECTION = "prayerSoundSwaps";
 
-	@ConfigSection(
-		name = "Blocked Sounds",
-		description = "Settings for blocking prayer sounds entirely",
-		position = 2
-	)
-	String BLOCKED_SOUNDS_SECTION = "blockedSounds";
-
 	@ConfigItem(
 		keyName = "protectItem",
 		name = "Protect Item",
@@ -491,18 +484,5 @@ public interface PrayerSoundSwapperConfig extends Config
 	default int customSoundsVolume()
 	{
 		return 65;
-	}
-
-	@ConfigItem(
-		keyName = "blockedSounds",
-		name = "Blocked Sounds",
-		description = "Prayer sounds that should not play at all. (Comma-separated IDs)<br><br>"
-			+ "If a sound is set to be blocked and swapped, it will be blocked.",
-		position = 1,
-		section = BLOCKED_SOUNDS_SECTION
-	)
-	default String blockedSounds()
-	{
-		return "";
 	}
 }
