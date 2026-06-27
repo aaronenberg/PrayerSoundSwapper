@@ -36,4 +36,36 @@ public class NativeSoundReplayGuardTest
 		assertFalse(plugin.consumeReplayedNativeSound(PrayerSoundSwap.PROTECT_FROM_MAGIC.getSoundId()));
 		assertTrue(plugin.consumeReplayedNativeSound(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId()));
 	}
+
+	@Test
+	public void skipsReplayWhenReplacementAlreadyPlayedNaturally()
+	{
+		PrayerSoundSwapperPlugin plugin = new PrayerSoundSwapperPlugin();
+
+		plugin.markNativeSoundPlayedNaturally(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId());
+
+		assertFalse(plugin.shouldQueueNativeSoundSwap(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId()));
+	}
+
+	@Test
+	public void naturalReplacementCancelsQueuedReplay()
+	{
+		PrayerSoundSwapperPlugin plugin = new PrayerSoundSwapperPlugin();
+
+		assertTrue(plugin.shouldQueueNativeSoundSwap(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId()));
+
+		plugin.markNativeSoundPlayedNaturally(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId());
+
+		assertFalse(plugin.consumeQueuedNativeSoundSwap(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId()));
+	}
+
+	@Test
+	public void coalescesDuplicateQueuedReplays()
+	{
+		PrayerSoundSwapperPlugin plugin = new PrayerSoundSwapperPlugin();
+
+		assertTrue(plugin.shouldQueueNativeSoundSwap(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId()));
+		assertFalse(plugin.shouldQueueNativeSoundSwap(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId()));
+		assertTrue(plugin.consumeQueuedNativeSoundSwap(PrayerSoundSwap.PROTECT_FROM_MELEE.getSoundId()));
+	}
 }

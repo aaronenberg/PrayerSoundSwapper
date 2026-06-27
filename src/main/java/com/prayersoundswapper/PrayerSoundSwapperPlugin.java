@@ -73,7 +73,10 @@ public class PrayerSoundSwapperPlugin extends Plugin
 
 	public HashMap<Integer, byte[]> customSounds = new HashMap<>();
 	public Map<Integer, PrayerSoundSwap> configuredSoundSwaps = new HashMap<>();
+	private final Set<Integer> queuedNativeSoundIds = new HashSet<>();
 	private final Set<Integer> replayedNativeSoundIds = new HashSet<>();
+	private final Set<Integer> naturallyPlayedNativeSoundIds = new HashSet<>();
+	private boolean clearNaturallyPlayedNativeSoundIdsQueued;
 
 	@Provides
 	PrayerSoundSwapperConfig provideConfig(ConfigManager configManager)
@@ -144,7 +147,10 @@ public class PrayerSoundSwapperPlugin extends Plugin
 				log.debug("playing custom prayer sound swap: {}", soundId);
 				event.consume();
 				playCustomSound(customSound, config.enableCustomSoundsVolume() ? config.customSoundsVolume() : -1);
+				return;
 			}
+
+			trackNativeSoundPlayedNaturally(soundId);
 			return;
 		}
 
@@ -153,8 +159,43 @@ public class PrayerSoundSwapperPlugin extends Plugin
 			int replacementSoundId = soundSwap.getSoundId();
 			log.debug("playing native prayer sound swap: {} -> {}", soundId, replacementSoundId);
 			event.consume();
-			clientThread.invokeLater(() -> playNativeSoundSwap(replacementSoundId));
+			queueNativeSoundSwap(replacementSoundId);
+			return;
 		}
+
+		trackNativeSoundPlayedNaturally(soundId);
+	}
+
+	private void queueNativeSoundSwap(int replacementSoundId)
+	{
+		if (!shouldQueueNativeSoundSwap(replacementSoundId))
+		{
+			log.debug("skipping duplicate native prayer sound swap replay: {}", replacementSoundId);
+			return;
+		}
+
+		clientThread.invokeLater(() -> playQueuedNativeSoundSwap(replacementSoundId));
+	}
+
+	boolean shouldQueueNativeSoundSwap(int replacementSoundId)
+	{
+		return !naturallyPlayedNativeSoundIds.contains(replacementSoundId) && queuedNativeSoundIds.add(replacementSoundId);
+	}
+
+	private void playQueuedNativeSoundSwap(int replacementSoundId)
+	{
+		if (!consumeQueuedNativeSoundSwap(replacementSoundId))
+		{
+			log.debug("skipping native prayer sound swap replay because it already played naturally: {}", replacementSoundId);
+			return;
+		}
+
+		playNativeSoundSwap(replacementSoundId);
+	}
+
+	boolean consumeQueuedNativeSoundSwap(int replacementSoundId)
+	{
+		return queuedNativeSoundIds.remove(replacementSoundId);
 	}
 
 	private void playNativeSoundSwap(int replacementSoundId)
@@ -171,6 +212,28 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	boolean consumeReplayedNativeSound(int soundId)
 	{
 		return replayedNativeSoundIds.remove(soundId);
+	}
+
+	void markNativeSoundPlayedNaturally(int soundId)
+	{
+		naturallyPlayedNativeSoundIds.add(soundId);
+		queuedNativeSoundIds.remove(soundId);
+	}
+
+	private void trackNativeSoundPlayedNaturally(int soundId)
+	{
+		markNativeSoundPlayedNaturally(soundId);
+		if (clearNaturallyPlayedNativeSoundIdsQueued)
+		{
+			return;
+		}
+
+		clearNaturallyPlayedNativeSoundIdsQueued = true;
+		clientThread.invokeLater(() ->
+		{
+			naturallyPlayedNativeSoundIds.clear();
+			clearNaturallyPlayedNativeSoundIdsQueued = false;
+		});
 	}
 
 	private boolean tryLoadSound(Map<Integer, byte[]> sounds, String soundName, Integer soundId)
@@ -368,6 +431,9 @@ public class PrayerSoundSwapperPlugin extends Plugin
 	{
 		customSounds = new HashMap<>();
 		configuredSoundSwaps = new HashMap<>();
+		queuedNativeSoundIds.clear();
 		replayedNativeSoundIds.clear();
+		naturallyPlayedNativeSoundIds.clear();
+		clearNaturallyPlayedNativeSoundIdsQueued = false;
 	}
 }
