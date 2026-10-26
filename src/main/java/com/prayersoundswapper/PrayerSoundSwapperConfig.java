@@ -474,6 +474,18 @@ public interface PrayerSoundSwapperConfig extends Config
 	}
 
 	@ConfigItem(
+			keyName = "zeal",
+			name = "Zeal",
+			description = "Sound to play instead of Zeal (12645)",
+			position = 37,
+			section = PRAYER_SOUND_SWAPS_SECTION
+	)
+	default PrayerSoundSwap zeal()
+	{
+		return PrayerSoundSwap.ORIGINAL;
+	}
+
+	@ConfigItem(
 		keyName = "enableCustomSoundsVolume",
 		name = "Enable Custom Volume",
 		description = "Enable the ability to set the volume of custom sound effects",

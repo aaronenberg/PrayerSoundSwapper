@@ -402,6 +402,9 @@ public class PrayerSoundSwapperPlugin extends Plugin
 			case DEADEYE:
 				selectedSound = config.deadeye();
 				break;
+			case ZEAL:
+				selectedSound = config.zeal();
+				break;
 			default:
 				selectedSound = PrayerSoundSwap.ORIGINAL;
 				break;
