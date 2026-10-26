@@ -68,7 +68,8 @@ public enum PrayerSoundSwap
 	PIETY(3825, "Piety"),
 	CHIVALRY(3826, "Chivalry"),
 	MYSTIC_VIGOUR(10100, "Mystic Vigour"),
-	DEADEYE(10194, "Deadeye");
+	DEADEYE(10194, "Deadeye"),
+	ZEAL(12645, "Zeal");
 
 	private static final List<PrayerSoundSwap> PRAYER_SOUNDS = Arrays.stream(values())
 		.filter(PrayerSoundSwap::isPrayerSound)
